@@ -1,0 +1,381 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --color-primary: #1e3a8a;
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e3a8a;
+  --color-primary-900: #1e3a8a;
+}
+
+@theme {
+  --color-primary: var(--color-primary);
+  --color-primary-50: var(--color-primary-50);
+  --color-primary-100: var(--color-primary-100);
+  --color-primary-200: var(--color-primary-200);
+  --color-primary-300: var(--color-primary-300);
+  --color-primary-400: var(--color-primary-400);
+  --color-primary-500: var(--color-primary-500);
+  --color-primary-600: var(--color-primary-600);
+  --color-primary-700: var(--color-primary-700);
+  --color-primary-800: var(--color-primary-800);
+  --color-primary-900: var(--color-primary-900);
+
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --animate-fade-in: fadeIn 0.3s ease-in-out;
+  --animate-slide-up: slideUp 0.3s ease-out;
+  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  --animate-float: float 3s ease-in-out infinite;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply text-gray-900 bg-white;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-linear-to-r from-primary-600 to-primary-700 text-white px-6 py-3 rounded-xl font-semibold 
+           hover:from-primary-700 hover:to-primary-800 transition-all duration-300 
+           hover:scale-[1.02] hover:shadow-lg active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary-700 border-2 border-primary-600 px-6 py-3 rounded-xl font-semibold 
+           hover:bg-primary-50 transition-all duration-300 
+           hover:scale-[1.02] hover:shadow-lg active:scale-[0.98];
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-lg border border-gray-100 
+           hover:shadow-xl hover:border-primary-200 transition-all duration-300;
+  }
+
+  .linear-bg {
+    @apply bg-linear-to-br from-primary-900 via-primary-800 to-blue-900;
+  }
+
+  .glass-effect {
+    @apply backdrop-blur-lg bg-white/10 border border-white/20;
+  }
+
+  .container {
+    @apply px-4 mx-auto w-full;
+    max-width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      max-width: 640px;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .container {
+      max-width: 768px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      max-width: 1024px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .container {
+      max-width: 1280px;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .container {
+      max-width: 1536px;
+    }
+  }
+}
+
+@layer utilities {
+  .text-linear {
+    @apply bg-linear-to-r from-primary-600 to-blue-600 bg-clip-text text-transparent;
+  }
+
+  .shadow-soft {
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-hard {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  }
+
+  .hover-lift {
+    @apply transition-transform duration-300 hover:-translate-y-1;
+  }
+
+  .text-contrast {
+    @apply text-gray-700;
+  }
+
+  .text-contrast-hover {
+    @apply text-gray-900;
+  }
+
+  .bg-contrast {
+    @apply bg-gray-50;
+  }
+
+  .border-contrast {
+    @apply border-gray-300;
+  }
+
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* Стили для Markdown контента */
+.markdown-content {
+  @apply max-w-none;
+}
+
+.markdown-content h1 {
+  @apply text-2xl sm:text-3xl lg:text-4xl font-bold mt-6 sm:mt-8 mb-3 sm:mb-4 text-gray-900;
+}
+
+.markdown-content h2 {
+  @apply text-xl sm:text-2xl lg:text-3xl font-semibold mt-5 sm:mt-6 mb-2 sm:mb-3 text-gray-800;
+}
+
+.markdown-content h3 {
+  @apply text-lg sm:text-xl lg:text-2xl font-semibold mt-4 sm:mt-5 mb-2 text-gray-700;
+}
+
+.markdown-content p {
+  @apply mb-4 text-gray-600 leading-relaxed text-sm sm:text-base lg:text-lg;
+}
+
+.markdown-content ul {
+  @apply list-disc pl-4 sm:pl-5 lg:pl-6 mb-4 space-y-2;
+}
+
+.markdown-content ol {
+  @apply list-decimal pl-4 sm:pl-5 lg:pl-6 mb-4 space-y-2;
+}
+
+.markdown-content strong {
+  @apply font-bold text-gray-900;
+}
+
+.markdown-content em {
+  @apply italic;
+}
+
+/* Таблицы */
+.markdown-content table {
+  @apply w-full border-collapse mb-6 text-sm sm:text-base rounded-xl overflow-hidden shadow-md;
+}
+
+.markdown-content thead {
+  @apply bg-linear-to-r from-primary-50 to-blue-50;
+}
+
+.markdown-content th {
+  @apply px-3 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200;
+}
+
+.markdown-content td {
+  @apply px-3 sm:px-4 py-3 text-sm text-gray-600 border-b border-gray-100;
+}
+
+.markdown-content tr:hover {
+  @apply bg-gray-50;
+}
+
+/* Изображения */
+.markdown-content img {
+  @apply my-6 rounded-2xl shadow-lg max-w-full h-auto mx-auto;
+  max-height: 500px;
+  object-fit: cover;
+}
+
+/* Код */
+.markdown-content code {
+  @apply bg-gray-100 text-gray-800 px-2 py-1 rounded-lg text-xs sm:text-sm font-mono;
+}
+
+.markdown-content pre {
+  @apply bg-gray-900 text-gray-100 p-4 rounded-xl overflow-x-auto mb-6 text-sm sm:text-base;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.markdown-content pre code {
+  @apply bg-transparent text-inherit p-0;
+}
+
+/* Блок цитаты */
+.markdown-content blockquote {
+  @apply border-l-4 border-primary-400 pl-4 sm:pl-6 italic text-gray-700 my-6 py-3 bg-linear-to-r from-primary-50 to-transparent rounded-r-lg;
+}
+
+/* Ссылки */
+.markdown-content a {
+  @apply text-primary-600 hover:text-primary-800 font-medium underline transition-colors duration-200;
+}
+
+/* Горизонтальная линия */
+.markdown-content hr {
+  @apply my-8 border-gray-200;
+}
+
+/* Адаптивные классы */
+.mobile-only {
+  @apply block sm:hidden;
+}
+
+.desktop-only {
+  @apply hidden sm:block;
+}
+
+/* Плавная анимация появления */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Декоративные элементы */
+.decorative-dot {
+  @apply w-2 h-2 rounded-full bg-primary-400;
+}
+
+.decorative-line {
+  @apply h-0.5 bg-linear-to-r from-transparent via-primary-300 to-transparent;
+}
+
+/* Кастомный скроллбар */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary-400;
+}
+
+/* Улучшенная контрастность для текста */
+.text-contrast-gray {
+  @apply text-gray-700;
+}
+
+.text-contrast-gray:hover {
+  @apply text-gray-900;
+}
+
+.bg-contrast-light {
+  @apply bg-gray-50;
+}
+
+.border-contrast-light {
+  @apply border-gray-300;
+}
+
+/* Анимация сердца */
+@keyframes heartbeat {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.1);
+  }
+  50% {
+    transform: scale(1);
+  }
+  75% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-heartbeat {
+  animation: heartbeat 1.5s ease-in-out infinite;
+}

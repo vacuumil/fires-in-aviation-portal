@@ -1,0 +1,52 @@
+backend:
+  name: git-gateway
+  branch: main
+  
+# Локальная разработка
+local_backend: true
+
+media_folder: "public/uploads"
+public_folder: "/uploads"
+
+# Отображение времени в часовом поясе Москвы
+locale: 'ru'
+
+collections:
+  - name: "sections"
+    label: "Разделы сайта"
+    folder: "app/content/sections"
+    create: true
+    slug: "{{slug}}"
+    identifier_field: "slug"
+    
+    fields:
+      - { label: "Название раздела", name: "title", widget: "string" }
+      - { label: "Slug", name: "slug", widget: "string", hint: "Часть URL (например: fires)" }
+      - { label: "Описание", name: "description", widget: "text" }
+      - { label: "Иконка", name: "icon", widget: "string", default: "Flame", hint: "Название иконки из Lucide React" }
+      - { label: "Цвет", name: "color", widget: "string", default: "from-red-500 to-orange-500" }
+      - { label: "Порядок", name: "order", widget: "number", default: 1 }
+
+  - name: "topics"
+    label: "Темы"
+    folder: "app/content/topics"
+    create: true
+    slug: "{{section}}/{{slug}}"
+    
+    fields:
+      - { label: "Раздел", name: "section", widget: "relation", collection: "sections", value_field: "slug", display_fields: ["title"], search_fields: ["title"] }
+      - { label: "Название темы", name: "title", widget: "string" }
+      - { label: "Slug", name: "slug", widget: "string", hint: "Часть URL" }
+      - { label: "Описание", name: "description", widget: "text" }
+      - { label: "Контент", name: "body", widget: "markdown" }
+      - { label: "Изображение", name: "image", widget: "image", required: false }
+      - { label: "Порядок", name: "order", widget: "number", default: 1 }
+      - { label: "Дата публикации", name: "date", widget: "datetime", format: "YYYY-MM-DD" }
+      - { label: "Автор", name: "author", widget: "string", default: "Преподаватель" }
+      - { 
+          label: "Ключевые слова", 
+          name: "keywords", 
+          widget: "list", 
+          required: false,
+          fields: [{ label: "Ключевое слово", name: "keyword", widget: "string" }]
+        }

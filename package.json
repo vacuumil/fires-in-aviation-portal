@@ -1,0 +1,42 @@
+{
+  "name": "fires-in-aviation-portal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "migrate": "node scripts/migrate-data.js",
+    "check-structure": "node scripts/check-structure.js",
+    "setup-sections": "node scripts/create-section-structure.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "framer-motion": "^12.23.25",
+    "fuse.js": "^7.1.0",
+    "gray-matter": "^4.0.3",
+    "js-cookie": "^3.0.5",
+    "lodash": "^4.17.21",
+    "lucide-react": "^0.556.0",
+    "next": "16.0.7",
+    "node-fetch": "^3.3.2",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-unwrap-images": "^4.0.1",
+    "tailwindcss": "^4.1.17"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/js-cookie": "^3.0.6",
+    "@types/lodash": "^4.17.21",
+    "@types/node": "^20.19.25",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "babel-plugin-react-compiler": "1.0.0",
+    "typescript": "^5"
+  }
+}
