@@ -27,22 +27,26 @@ const getBaseUrl = () => {
 // Простая функция fetch без сложной логики
 async function simpleFetch(url: string) {
   try {
-    const response = await fetch(url, {
-      cache: 'no-store',
+    // ВАЖНО: Используем относительный путь для внутренних API
+    const apiUrl = url.startsWith('http') ? url : `${getBaseUrl()}${url}`;
+    
+    const response = await fetch(apiUrl, {
+      // УБРАНО: cache: 'no-store'
+      // Время кэширования теперь управляется на уровне страниц через revalidate
       headers: {
         'Content-Type': 'application/json',
       },
-    })
+    });
     
     if (!response.ok) {
-      console.warn(`Fetch failed for ${url}: ${response.status}`)
-      return []
+      console.warn(`Fetch failed for ${url}: ${response.status}`);
+      return [];
     }
     
-    return await response.json()
+    return await response.json();
   } catch (error) {
-    console.error(`Fetch error for ${url}:`, error)
-    return []
+    console.error(`Fetch error for ${url}:`, error);
+    return [];
   }
 }
 
@@ -89,17 +93,17 @@ export async function getTopicByNumber(number: number): Promise<Topic | null> {
 
 export async function getTopicsBySection(section: string): Promise<Topic[]> {
   try {
-    const baseUrl = getBaseUrl()
-    const topics = await simpleFetch(`${baseUrl}/api/github/topics?section=${section}`)
+    // ВАЖНО: Относительный путь к API
+    const topics = await simpleFetch(`/api/github/topics?section=${section}`);
     
     return topics.map((topic: any) => ({
       ...topic,
       content: topic.content || topic.body || '',
       body: topic.body || topic.content || '',
       section: topic.section || section
-    }))
+    })).sort((a: Topic, b: Topic) => (a.order || 0) - (b.order || 0));
   } catch (error) {
-    console.error(`Error loading topics for section ${section}:`, error)
-    return []
+    console.error(`Error loading topics for section ${section}:`, error);
+    return [];
   }
 }

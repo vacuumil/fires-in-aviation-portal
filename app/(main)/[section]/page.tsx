@@ -42,14 +42,6 @@ const sectionConfig = {
 
 // Настройки ревалидации
 export const revalidate = 60
-export const dynamic = 'force-dynamic'
-
-// Генерация статических параметров
-export async function generateStaticParams() {
-  return Object.keys(sectionConfig).map((section) => ({
-    section
-  }))
-}
 
 // Генерация метаданных
 export async function generateMetadata({ params }: { params: Promise<{ section: string }> }) {
