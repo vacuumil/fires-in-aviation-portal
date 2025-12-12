@@ -1,5 +1,5 @@
 import Header from '@/app/components/ui/Header'
-import Footer from '@/app/components/ui/Footer'
+import FooterServer from '@/app/components/ui/FooterServer'
 
 export default function MainLayout({
   children,
@@ -12,7 +12,7 @@ export default function MainLayout({
       <main className="grow">
         {children}
       </main>
-      <Footer />
+      <FooterServer />
     </>
   )
 }

@@ -70,20 +70,20 @@ export default function Sidebar({ currentTopic }: SidebarProps) {
   useEffect(() => {
     // Загружаем заголовки тем
     async function loadTopicTitles() {
-      try {
-        const response = await fetch('/api/topics')
-        if (response.ok) {
-          const topics = await response.json()
-          const titles: Record<number, string> = {}
-          topics.forEach((topic: any) => {
-            titles[topic.topic_number] = topic.title
-          })
-          setTopicTitles(titles)
-        }
-      } catch (error) {
-        console.error('Failed to load topic titles:', error)
-      }
+  try {
+    const response = await fetch('/api/topics/simple')
+    if (response.ok) {
+      const topics = await response.json()
+      const titles: Record<number, string> = {}
+      topics.forEach((topic: any) => {
+        titles[topic.topic_number] = topic.title
+      })
+      setTopicTitles(titles)
     }
+  } catch (error) {
+    console.error('Error loading topic titles:', error)
+  }
+}
 
     loadTopicTitles()
   }, [])

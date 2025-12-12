@@ -1,4 +1,4 @@
-// app/(admin)/admin/page.tsx - АДАПТИВНАЯ ВЕРСИЯ
+// app/(admin)/admin/page.tsx - АДАПТИВНАЯ ВЕРСИЯ С ИСПРАВЛЕНИЯМИ
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -59,23 +59,29 @@ export default function AdminPage() {
   const loadTopics = async () => {
     setLoading(true)
     try {
-      // Загружаем темы по разделам отдельно
+      // Загружаем темы через новый GitHub API
       const sectionsData: Record<string, Topic[]> = {}
       let totalTopics = 0
       
+      // Используем новый endpoint с корректным URL
       for (const section of ['fires', 'emergency', 'education', 'protection']) {
-        const response = await fetch(`/api/sections/${section}`)
+        const response = await fetch(`/api/github/topics?section=${section}`, {
+          cache: 'no-store'
+        })
         if (response.ok) {
           const data = await response.json()
           sectionsData[section] = data
           totalTopics += data.length
+        } else {
+          console.error(`Error loading ${section}:`, response.status)
+          sectionsData[section] = []
         }
       }
       
       // Объединяем все темы
       const allTopics: Topic[] = []
-      Object.entries(sectionsData).forEach(([section, topics]) => {
-        topics.forEach(topic => {
+      Object.entries(sectionsData).forEach(([section, sectionTopics]) => {
+        sectionTopics.forEach(topic => {
           topic.section = section
           allTopics.push(topic)
         })
@@ -91,14 +97,35 @@ export default function AdminPage() {
         protection: sectionsData.protection?.length || 0
       }
       
+      // Находим дату последнего обновления
+      let lastDate = ''
+      if (allTopics.length > 0) {
+        const sorted = [...allTopics].sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        )
+        lastDate = sorted[0]?.date || ''
+      }
+      
       setStats({
         total: totalTopics,
-        lastUpdated: allTopics[0]?.date || '',
-        completed: Math.round((totalTopics / 100) * 100),
+        lastUpdated: lastDate,
+        completed: Math.min(100, Math.round((totalTopics / 100) * 100)),
         bySection
       })
     } catch (error) {
       console.error('Ошибка загрузки:', error)
+      // Показываем пустую статистику при ошибке
+      setStats({
+        total: 0,
+        lastUpdated: '',
+        completed: 0,
+        bySection: {
+          fires: 0,
+          emergency: 0,
+          education: 0,
+          protection: 0
+        }
+      })
     } finally {
       setLoading(false)
     }
@@ -184,7 +211,7 @@ export default function AdminPage() {
           </Link>
 
           <Link href="/" target="_blank" className="group">
-            <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 h-full min-h-[140px] sm:min-h-40 flex flex-col justify-between">
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 h-full min-h-[140px] sm:minh-40 flex flex-col justify-between">
               <div className="flex items-center mb-3 sm:mb-4">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-xl flex items-center justify-center mr-3 sm:mr-4 group-hover:bg-green-200 transition-colors">
                   <Eye className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
@@ -354,7 +381,7 @@ export default function AdminPage() {
                     </div>
                     
                     <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-3 sm:mt-4">
-                      {topic.section === 'fires' ? (
+                      {topic.section ? (
                         <a
                           href={`/topics/${topic.id}`}
                           target="_blank"
@@ -364,7 +391,7 @@ export default function AdminPage() {
                         </a>
                       ) : (
                         <span className="text-gray-400 text-xs sm:text-sm font-medium">
-                          👁️ В разделе "{topic.section}"
+                          👁️ Просмотр
                         </span>
                       )}
                       <Link

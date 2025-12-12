@@ -201,112 +201,124 @@ export default function SimpleAdminPage() {
     }
   }
 
-  const handleSaveTopic = async () => {
-    if (!formData.title.trim()) {
-      showMessage('error', 'Введите название темы')
-      return
-    }
-
-    if (!formData.topic_number.trim()) {
-      showMessage('error', 'Введите номер темы')
-      return
-    }
-
-    const topicNumber = parseInt(formData.topic_number)
-    if (isNaN(topicNumber) || topicNumber <= 0) {
-      showMessage('error', 'Номер темы должен быть положительным числом')
-      return
-    }
-
-    setSaving(true)
-    try {
-      const response = await fetch(`/api/github/topics`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          topic_number: topicNumber,
-          title: formData.title,
-          description: formData.description,
-          content: formData.content,
-          date: formData.date,
-          author: formData.author,
-          keywords: formData.keywords,
-          section: selectedSection,
-          order: formData.order
-        })
-      })
-
-      // ВАЖНО: Не читаем Response дважды!
-      let data: any
-      let errorMessage = ''
-      
-      try {
-        // Читаем ответ как текст
-        const responseText = await response.text()
-        
-        try {
-          // Парсим JSON
-          data = JSON.parse(responseText)
-        } catch (parseError) {
-          console.error('Failed to parse JSON:', responseText)
-          errorMessage = `Invalid server response: ${responseText.substring(0, 200)}`
-        }
-      } catch (textError) {
-        console.error('Failed to read response as text:', textError)
-        errorMessage = 'Cannot read server response'
-      }
-
-      if (response.ok && data) {
-        showMessage('success', data.message || 'Тема сохранена')
-        
-        // Обновляем список тем
-        await loadSectionTopics()
-        
-        // Вызываем ревалидацию кэша
-        try {
-          await fetch('/api/revalidate-topic', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              section: selectedSection,
-              topicNumber: topicNumber,
-              secret: process.env.NEXT_PUBLIC_REVALIDATE_SECRET || 'dev-secret'
-            })
-          })
-        } catch (revalidateError) {
-          console.log('Ревалидация не удалась:', revalidateError)
-        }
-        
-        // Обновляем текущую тему
-        setCurrentTopic(data.topic || {
-          id: topicNumber,
-          topic_number: topicNumber,
-          title: formData.title,
-          description: formData.description,
-          content: formData.content,
-          body: formData.content,
-          date: formData.date,
-          author: formData.author,
-          keywords: formData.keywords,
-          section: selectedSection,
-          order: formData.order
-        })
-        
-        setIsEditing(false)
-        
-      } else {
-        // ОШИБКА
-        showMessage('error', data?.error || errorMessage || `Ошибка сохранения: ${response.status}`)
-      }
-    } catch (error: any) {
-      console.error('Ошибка сохранения:', error)
-      showMessage('error', error.message || 'Ошибка соединения с сервером')
-    } finally {
-      setSaving(false)
-    }
+const handleSaveTopic = async () => {
+  if (!formData.title.trim()) {
+    showMessage('error', 'Введите название темы')
+    return
   }
+
+  if (!formData.topic_number.trim()) {
+    showMessage('error', 'Введите номер темы')
+    return
+  }
+
+  const topicNumber = parseInt(formData.topic_number)
+  if (isNaN(topicNumber) || topicNumber <= 0) {
+    showMessage('error', 'Номер темы должен быть положительным числом')
+    return
+  }
+
+  setSaving(true)
+  try {
+    const response = await fetch(`/api/github/topics`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        topic_number: topicNumber,
+        title: formData.title,
+        description: formData.description,
+        content: formData.content,
+        date: formData.date,
+        author: formData.author,
+        keywords: formData.keywords,
+        section: selectedSection,
+        order: formData.order
+      })
+    })
+
+    // Читаем ответ ОДИН РАЗ
+    const responseText = await response.text()
+    let data: any
+    
+    try {
+      data = JSON.parse(responseText)
+    } catch (parseError) {
+      console.error('Failed to parse JSON:', responseText)
+      showMessage('error', `Ошибка сервера: некорректный ответ`)
+      return
+    }
+
+    if (response.ok) {
+      showMessage('success', data.message || 'Тема сохранена')
+      
+      // Сразу обновляем список тем
+      await loadSectionTopics()
+      
+      // ОБНОВЛЕНО: Не блокируем сохранение ошибкой ревалидации
+      // Пробуем ревалидировать, но не ждем результата и не показываем ошибки
+      const revalidatePromises = [
+        // Ревалидируем текущий раздел
+        fetch(`/api/revalidate?path=/${selectedSection}`, { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(e => console.log('Revalidation 1 failed silently:', e.message)),
+        
+        // Ревалидируем главную
+        fetch(`/api/revalidate?path=/`, { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(e => console.log('Revalidation 2 failed silently:', e.message)),
+        
+        // Ревалидируем тему (если она существует)
+        fetch(`/api/revalidate?path=/topics/${topicNumber}`, { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(e => console.log('Revalidation 3 failed silently:', e.message)),
+      ]
+      
+      // Запускаем все параллельно и не ждем
+      Promise.allSettled(revalidatePromises)
+        .then(() => console.log('All revalidation attempts completed'))
+        .catch(() => {}) // Игнорируем все ошибки
+      
+      // Обновляем текущую тему
+      setCurrentTopic(data.topic || {
+        id: topicNumber,
+        topic_number: topicNumber,
+        title: formData.title,
+        description: formData.description,
+        content: formData.content,
+        body: formData.content,
+        date: formData.date,
+        author: formData.author,
+        keywords: formData.keywords,
+        section: selectedSection,
+        order: formData.order
+      })
+      
+      setIsEditing(false)
+      
+      // Показываем инструкцию
+      setTimeout(() => {
+        setMessage({ 
+          type: 'success', 
+          text: `Тема сохранена! Откройте раздел "${getCurrentSection()?.name}" на сайте. Новая тема появится в течение 60 секунд.` 
+        })
+      }, 1000)
+      
+    } else {
+      // ОШИБКА
+      showMessage('error', data?.error || `Ошибка сохранения: ${response.status}`)
+    }
+  } catch (error: any) {
+    console.error('Ошибка сохранения:', error)
+    showMessage('error', error.message || 'Ошибка соединения с сервером')
+  } finally {
+    setSaving(false)
+  }
+}
 
   const handleAddKeyword = () => {
     if (newKeyword.trim() && !formData.keywords.includes(newKeyword.trim())) {
@@ -418,51 +430,51 @@ export default function SimpleAdminPage() {
     }, 0)
   }
 
-  const handleUploadImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+const handleUploadImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0]
+  if (!file) return
 
-    if (!file.type.startsWith('image/')) {
-      showMessage('error', 'Пожалуйста, загрузите изображение')
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      showMessage('error', 'Размер файла не должен превышать 5MB')
-      return
-    }
-
-    setUploadingImage(true)
-    
-    try {
-      const formData = new FormData()
-      formData.append('image', file)
-      
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      })
-      
-      const data = await response.json()
-      
-      if (response.ok && data.url) {
-        const markdownImage = `\n![Описание изображения](${data.url})\n`
-        insertTextAtCursor(markdownImage)
-        showMessage('success', 'Изображение загружено')
-      } else {
-        showMessage('error', data.error || 'Ошибка загрузки изображения')
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки:', error)
-      showMessage('error', 'Ошибка загрузки изображения')
-    } finally {
-      setUploadingImage(false)
-      if (imageInputRef.current) {
-        imageInputRef.current.value = ''
-      }
-    }
+  if (!file.type.startsWith('image/')) {
+    showMessage('error', 'Пожалуйста, загрузите изображение')
+    return
   }
 
+  if (file.size > 5 * 1024 * 1024) {
+    showMessage('error', 'Размер файла не должен превышать 5MB')
+    return
+  }
+
+  setUploadingImage(true)
+  
+  try {
+    const formData = new FormData()
+    formData.append('image', file)
+    
+    // Используем локальный endpoint
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    })
+    
+    const data = await response.json()
+    
+    if (response.ok && data.url) {
+      const markdownImage = `\n![Описание изображения](${data.url})\n`
+      insertTextAtCursor(markdownImage)
+      showMessage('success', 'Изображение загружено')
+    } else {
+      showMessage('error', data.error || 'Ошибка загрузки изображения')
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки:', error)
+    showMessage('error', 'Ошибка загрузки изображения')
+  } finally {
+    setUploadingImage(false)
+    if (imageInputRef.current) {
+      imageInputRef.current.value = ''
+    }
+  }
+}
   const insertLink = () => {
     const linkText = prompt('Введите текст ссылки:', 'Пример ссылки')
     const linkUrl = prompt('Введите URL:', 'https://example.com')
@@ -481,42 +493,44 @@ export default function SimpleAdminPage() {
     insertTextAtCursor('*курсивный текст*')
   }
 
-  const renderPreview = () => {
-    return (
-      <div className="prose prose-sm sm:prose-lg max-w-none">
-        <div dangerouslySetInnerHTML={{ 
-          __html: (formData.content || '')
-            .replace(/# (.*?)(\n|$)/g, '<h1 class="text-2xl sm:text-3xl font-bold mt-6 sm:mt-8 mb-3 sm:mb-4">$1</h1>')
-            .replace(/## (.*?)(\n|$)/g, '<h2 class="text-xl sm:text-2xl font-semibold mt-4 sm:mt-6 mb-2 sm:mb-3">$2</h2>')
-            .replace(/### (.*?)(\n|$)/g, '<h3 class="text-lg sm:text-xl font-semibold mt-3 sm:mt-4 mb-2">$3</h3>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/\n/g, '<br>')
-            .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="my-3 sm:my-4 rounded-lg max-w-full" />')
-        }} />
-      </div>
-    )
-  }
+const renderPreview = () => {
+  return (
+    <div className="prose prose-sm sm:prose-lg max-w-none editor-preview bg-white p-4 sm:p-6 rounded-lg border border-gray-200">
+      <div dangerouslySetInnerHTML={{ 
+        __html: (formData.content || '')
+          .replace(/# (.*?)(\n|$)/g, '<h1>$1</h1>')
+          .replace(/## (.*?)(\n|$)/g, '<h2>$1</h2>')
+          .replace(/### (.*?)(\n|$)/g, '<h3>$1</h3>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/\n\n/g, '</p><p>')
+          .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="my-3 sm:my-4 rounded-lg max-w-full" />')
+          .replace(/\n/g, '<br>')
+      }} />
+    </div>
+  )
+}
 
-  const renderTopicContent = (topic: Topic) => {
-    const content = topic.content || topic.body || ''
-    if (!content) return <p className="text-gray-500">Контент отсутствует</p>
-    
-    return (
-      <div className="prose prose-sm sm:prose-lg max-w-none">
-        <div dangerouslySetInnerHTML={{ 
-          __html: content
-            .replace(/# (.*?)(\n|$)/g, '<h1 class="text-2xl sm:text-3xl font-bold mt-6 sm:mt-8 mb-3 sm:mb-4">$1</h1>')
-            .replace(/## (.*?)(\n|$)/g, '<h2 class="text-xl sm:text-2xl font-semibold mt-4 sm:mt-6 mb-2 sm:mb-3">$1</h2>')
-            .replace(/### (.*?)(\n|$)/g, '<h3 class="text-lg sm:text-xl font-semibold mt-3 sm:mt-4 mb-2">$1</h3>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="my-3 sm:my-4 rounded-lg max-w-full" />')
-        }} />
-      </div>
-    )
-  }
+
+const renderTopicContent = (topic: Topic) => {
+  const content = topic.content || topic.body || ''
+  if (!content) return <p className="text-gray-500">Контент отсутствует</p>
+  
+  return (
+    <div className="prose prose-sm sm:prose-lg max-w-none editor-preview bg-white p-4 sm:p-6 rounded-lg border border-gray-200">
+      <div dangerouslySetInnerHTML={{ 
+        __html: content
+          .replace(/# (.*?)(\n|$)/g, '<h1>$1</h1>')
+          .replace(/## (.*?)(\n|$)/g, '<h2>$1</h2>')
+          .replace(/### (.*?)(\n|$)/g, '<h3>$1</h3>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/\n\n/g, '</p><p>')
+          .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="my-3 sm:my-4 rounded-lg max-w-full" />')
+      }} />
+    </div>
+  )
+}
 
   const getCurrentSection = () => {
     return sections.find(s => s.id === selectedSection)

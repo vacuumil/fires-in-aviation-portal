@@ -1,68 +1,32 @@
-// app/api/sections/route.ts - если вам нужен отдельный endpoint для секций
+// app/api/sections/[section]/route.ts - ПРОКСИ ДЛЯ GitHub API
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
 
-const sectionsFilePath = path.join(process.cwd(), 'app/content/sections.json')
-
-export async function GET() {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ section: string }> }
+) {
   try {
-    if (!fs.existsSync(sectionsFilePath)) {
-      return NextResponse.json([])
-    }
+    const { section } = await params
     
-    const data = fs.readFileSync(sectionsFilePath, 'utf8')
-    return NextResponse.json(JSON.parse(data))
-  } catch (error) {
-    console.error('Error reading sections:', error)
-    return NextResponse.json([], { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    
-    let sections = []
-    if (fs.existsSync(sectionsFilePath)) {
-      const data = fs.readFileSync(sectionsFilePath, 'utf8')
-      sections = JSON.parse(data)
-    }
-    
-    sections.push({
-      ...body,
-      id: Date.now().toString()
-    })
-    
-    fs.writeFileSync(sectionsFilePath, JSON.stringify(sections, null, 2), 'utf8')
-    
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Error creating section:', error)
-    return NextResponse.json({ error: 'Ошибка создания' }, { status: 500 })
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json()
-    
-    if (!fs.existsSync(sectionsFilePath)) {
-      return NextResponse.json({ error: 'Секция не найдена' }, { status: 404 })
-    }
-    
-    const data = fs.readFileSync(sectionsFilePath, 'utf8')
-    let sections = JSON.parse(data)
-    
-    sections = sections.map((section: any) => 
-      section.slug === body.slug ? { ...section, ...body } : section
+    // Проксируем запрос к GitHub API
+    const response = await fetch(
+      `${request.nextUrl.origin}/api/github/topics?section=${section}`,
+      {
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      }
     )
     
-    fs.writeFileSync(sectionsFilePath, JSON.stringify(sections, null, 2), 'utf8')
+    if (!response.ok) {
+      return NextResponse.json([], { status: response.status })
+    }
     
-    return NextResponse.json({ success: true })
+    const data = await response.json()
+    return NextResponse.json(data)
+    
   } catch (error) {
-    console.error('Error updating section:', error)
-    return NextResponse.json({ error: 'Ошибка обновления' }, { status: 500 })
+    console.error('Error in sections API:', error)
+    return NextResponse.json([], { status: 500 })
   }
 }

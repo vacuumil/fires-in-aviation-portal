@@ -1,9 +1,9 @@
-// app/components/ui/Footer.tsx - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// app/components/ui/Footer.tsx - ИСПРАВЛЕННЫЙ
 'use client'
 
-import { Heart, Shield, Lock, BookOpen, ArrowRight } from 'lucide-react'
+import { Heart, Shield, Lock, BookOpen, ArrowRight, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 interface SectionStats {
   fires: number
@@ -23,7 +23,7 @@ export default function Footer() {
   })
   const [loading, setLoading] = useState(true)
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const sections = ['fires', 'emergency', 'education', 'protection']
       const counts: Record<string, number> = {}
@@ -31,9 +31,8 @@ export default function Footer() {
       
       for (const section of sections) {
         try {
-          const res = await fetch(`/api/github/topics?section=${section}`, {
-            next: { revalidate: 60 }
-          })
+          // УБРАНО: next: { revalidate } - это только для серверных компонентов
+          const res = await fetch(`/api/github/topics?section=${section}`)
           if (res.ok) {
             const data = await res.json()
             counts[section] = data.length
@@ -59,11 +58,11 @@ export default function Footer() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
   
   useEffect(() => {
     loadStats()
-  }, [])
+  }, [loadStats])
 
   const sections = [
     { 
@@ -117,7 +116,11 @@ export default function Footer() {
                   <span className="text-2xl">{section.icon}</span>
                 </div>
                 <span className="text-sm bg-gray-700/50 text-white px-3 py-1.5 rounded-full">
-                  {loading ? '...' : section.count} тем
+                  {loading ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    `${section.count} тем`
+                  )}
                 </span>
               </div>
               
@@ -210,7 +213,7 @@ export default function Footer() {
               </div>
               
               <p className="text-sm text-gray-500">
-                Проект включает темы по пожарам, ЧС, образованию и защите в авиации
+                Всего тем на сайте: {loading ? '...' : stats.total}
               </p>
             </div>
           </div>
