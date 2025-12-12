@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { ArrowRight, Flame, AlertTriangle, BookOpen, Shield } from 'lucide-react'
 import { getTopicsBySection } from '@/app/lib/cms/server'
 
-
 // Конфигурация разделов
 const sectionConfig = {
   fires: {
@@ -53,7 +52,7 @@ export default async function SectionPage({
     notFound()
   }
   
-  // Загружаем темы раздела с отключенным кэшем
+  // Загружаем темы раздела
   const topics = await getTopicsBySection(section)
 
   return (

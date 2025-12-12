@@ -238,19 +238,27 @@ export default function SimpleAdminPage() {
         })
       })
 
-      // Сначала получаем текст ответа
-      const responseText = await response.text()
+      // ВАЖНО: Не читаем Response дважды!
       let data: any
+      let errorMessage = ''
       
       try {
-        data = JSON.parse(responseText)
-      } catch {
-        throw new Error('Неверный формат ответа от сервера')
+        // Читаем ответ как текст
+        const responseText = await response.text()
+        
+        try {
+          // Парсим JSON
+          data = JSON.parse(responseText)
+        } catch (parseError) {
+          console.error('Failed to parse JSON:', responseText)
+          errorMessage = `Invalid server response: ${responseText.substring(0, 200)}`
+        }
+      } catch (textError) {
+        console.error('Failed to read response as text:', textError)
+        errorMessage = 'Cannot read server response'
       }
 
-      if (response.ok) {
-        const data = await response.json()
-        
+      if (response.ok && data) {
         showMessage('success', data.message || 'Тема сохранена')
         
         // Обновляем список тем
@@ -268,7 +276,7 @@ export default function SimpleAdminPage() {
             })
           })
         } catch (revalidateError) {
-          console.log('Ревалидация не удалась, но это не критично')
+          console.log('Ревалидация не удалась:', revalidateError)
         }
         
         // Обновляем текущую тему
@@ -288,17 +296,9 @@ export default function SimpleAdminPage() {
         
         setIsEditing(false)
         
-        // Опционально: вызываем ревалидацию через отдельный запрос
-        try {
-          await fetch(`/api/revalidate?path=/${selectedSection}`, { method: 'POST' })
-          console.log('Ревалидация страницы раздела')
-        } catch (revalidateError) {
-          console.log('Ревалидация не удалась, но это не критично')
-        }
-        
       } else {
         // ОШИБКА
-        showMessage('error', data.error || 'Ошибка сохранения')
+        showMessage('error', data?.error || errorMessage || `Ошибка сохранения: ${response.status}`)
       }
     } catch (error: any) {
       console.error('Ошибка сохранения:', error)

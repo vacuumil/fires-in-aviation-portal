@@ -1,34 +1,33 @@
-// app/(main)/topics/[slug]/page.tsx - ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ
-import { getAllTopics, getTopicByNumber } from '@/app/lib/cms/server'
+// app/(main)/topics/[slug]/page.tsx - ОПТИМИЗИРОВАННАЯ ВЕРСИЯ
+import { getTopicByNumber, getTopicsBySection } from '@/app/lib/cms/server'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Home, BookOpen, Calendar, User, Flame, AlertTriangle, GraduationCap, Shield } from 'lucide-react'
 import MarkdownRenderer from '@/app/components/ui/MarkdownRenderer'
 
-// Конфигурация разделов
 const sectionConfig = {
   fires: {
     title: 'Пожары',
     icon: <Flame className="w-5 h-5" />,
     gradient: 'from-red-500 to-orange-500',
-    color: 'bg-red-100 text-red-800'
+    color: 'from-red-500 to-orange-500'
   },
   emergency: {
     title: 'Чрезвычайные ситуации',
     icon: <AlertTriangle className="w-5 h-5" />,
     gradient: 'from-orange-500 to-amber-500',
-    color: 'bg-orange-100 text-orange-800'
+    color: 'from-orange-500 to-amber-500'
   },
   education: {
     title: 'Образование',
     icon: <GraduationCap className="w-5 h-5" />,
     gradient: 'from-blue-500 to-cyan-500',
-    color: 'bg-blue-100 text-blue-800'
+    color: 'from-blue-500 to-cyan-500'
   },
   protection: {
     title: 'Защита',
     icon: <Shield className="w-5 h-5" />,
     gradient: 'from-green-500 to-emerald-500',
-    color: 'bg-green-100 text-green-800'
+    color: 'from-green-500 to-emerald-500'
   }
 }
 
@@ -36,31 +35,27 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
   const resolvedParams = await params
   const topicNumber = parseInt(resolvedParams.slug)
   
-  // Получаем тему
+  // Получаем тему напрямую
   const topic = await getTopicByNumber(topicNumber)
   
   if (!topic) {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-4">Тема не найдена</h1>
-        <Link href="/" className="text-blue-600 hover:text-blue-800">
+        <p className="text-gray-600 mb-4">Тема №{topicNumber} не существует или еще не создана.</p>
+        <Link href="/" className="text-blue-600 hover:text-blue-800 font-medium">
           Вернуться на главную
         </Link>
       </div>
     )
   }
 
-  // Получаем все темы для навигации
-  const allTopics = await getAllTopics()
-  
   // Определяем раздел темы
   const section = topic.section || 'fires'
   const sectionInfo = sectionConfig[section as keyof typeof sectionConfig] || sectionConfig.fires
 
-  // Находим все темы этого раздела для навигации
-  const sectionTopics = allTopics
-    .filter(t => t.section === section)
-    .sort((a, b) => (a.order || a.topic_number) - (b.order || b.topic_number))
+  // Получаем темы только этого раздела
+  const sectionTopics = await getTopicsBySection(section)
   
   const currentIndex = sectionTopics.findIndex(t => t.topic_number === topicNumber)
   const prevTopic = currentIndex > 0 ? sectionTopics[currentIndex - 1] : null
@@ -69,18 +64,6 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-        {/* Индикатор раздела */}
-        <div className="mb-6">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100">
-            <div className={`p-1.5 rounded ${sectionInfo.color.split(' ')[1]}`}>
-              {sectionInfo.icon}
-            </div>
-            <span className="font-medium text-gray-700">
-              Раздел: <span className="font-bold">{sectionInfo.title}</span>
-            </span>
-          </div>
-        </div>
-
         {/* Навигация */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -106,7 +89,7 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
               >
                 <ChevronLeft className="w-4 h-4 mr-2" />
                 <div className="text-left">
-                  <div className="text-xs text-gray-500">Предыдущая тема</div>
+                  <div className="text-xs text-gray-500">Предыдущая</div>
                   <div className="font-medium truncate max-w-[200px]">{prevTopic.title}</div>
                 </div>
               </Link>
@@ -120,7 +103,7 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
                 className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
               >
                 <div className="text-right mr-2">
-                  <div className="text-xs text-gray-500">Следующая тема</div>
+                  <div className="text-xs text-gray-500">Следующая</div>
                   <div className="font-medium truncate max-w-[200px]">{nextTopic.title}</div>
                 </div>
                 <ChevronRight className="w-4 h-4" />
@@ -128,6 +111,18 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
             ) : (
               <div></div>
             )}
+          </div>
+        </div>
+
+        {/* Индикатор раздела */}
+        <div className="mb-6">
+          <div className={`inline-flex items-center px-4 py-2 rounded-lg bg-linear-to-r ${sectionInfo.gradient} bg-opacity-10`}>
+            <div className="mr-2">
+              {sectionInfo.icon}
+            </div>
+            <span className={`font-medium bg-linear-to-r ${sectionInfo.gradient} bg-clip-text text-transparent`}>
+              Раздел: {sectionInfo.title}
+            </span>
           </div>
         </div>
 
@@ -178,7 +173,7 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
                   className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4 mr-2" />
-                  Предыдущая
+                  Назад
                 </Link>
               )}
               
@@ -195,7 +190,7 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
                   href={`/topics/${nextTopic.topic_number}`}
                   className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
-                  Следующая
+                  Далее
                   <ChevronRight className="w-4 h-4 ml-2" />
                 </Link>
               )}

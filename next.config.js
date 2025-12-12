@@ -21,6 +21,7 @@ const nextConfig = {
   
   // Для загрузки файлов увеличиваем лимит
   experimental: {
+    serverComponentsExternalPackages: ['fs', 'path'],
   },
 
   // Включаем строгий режим ESLint
@@ -35,6 +36,9 @@ const nextConfig = {
 
   // Настройки для деплоя
   output: 'standalone',
+  
+  // Настройки для статического экспорта (если нужно)
+  trailingSlash: true,
 }
 
 module.exports = nextConfig

@@ -1,4 +1,4 @@
-// app/lib/cms/server.ts - ИСПРАВЛЕННАЯ ВЕРСИЯ ДЛЯ СБОРКИ
+// app/lib/cms/server.ts - ОПТИМИЗИРОВАННАЯ ВЕРСИЯ
 export interface Topic {
   id: number
   topic_number: number
@@ -13,97 +13,97 @@ export interface Topic {
   order: number
 }
 
-// Мок-данные для сборки
-const mockTopicsBySection: Record<string, Topic[]> = {
-  fires: [
-    {
-      id: 1,
-      topic_number: 1,
-      title: "теория 1",
-      description: "для пробы",
-      content: "# Новая тема\n\n**Начните писать содержание темы здесь...**\n",
-      body: "# Новая тема\n\n**Начните писать содержание темы здесь...**\n",
-      date: "2025-12-11",
-      author: "Преподаватель",
-      keywords: ["ура"],
-      section: "fires",
-      order: 1
-    },
-    {
-      id: 2,
-      topic_number: 2,
-      title: "Статистика пожаров в авиации",
-      description: "Анализ статистических данных по пожарам в авиации за последние годы",
-      content: "# Статистика пожаров в авиации\n\n## Анализ данных\n\nСовременная статистика пожаров в авиации показывает определенные тенденции и закономерности.",
-      body: "# Статистика пожаров в авиации\n\n## Анализ данных\n\nСовременная статистика пожаров в авиации показывает определенные тенденции и закономерности.",
-      date: "2024-01-15",
-      author: "Преподаватель",
-      keywords: [],
-      section: "fires",
-      order: 2
-    }
-  ],
-  emergency: [
-    {
-      id: 101,
-      topic_number: 101,
-      title: "ЧС",
-      description: "ситуация",
-      content: "# Новая тема\n\n**Начните писать содержание темы здесь...\n**",
-      body: "# Новая тема\n\n**Начните писать содержание темы здесь...\n**",
-      date: "2025-12-11",
-      author: "я",
-      keywords: ["чситуация"],
-      section: "emergency",
-      order: 1
-    }
-  ],
-  education: [],
-  protection: []
+// Конфигурация для разных окружений
+const config = {
+  isDevelopment: process.env.NODE_ENV === 'development',
+  baseUrl: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+  timeout: 10000, // 10 секунд
+  retryCount: 2
 }
 
-// Функция для определения режима
-function isBuildTime() {
-  return process.env.NEXT_PHASE === 'phase-production-build' || 
-         process.env.NODE_ENV === 'production'
-}
+// Кэш в памяти для предотвращения дублирующих запросов
+const cache = new Map<string, { data: any, timestamp: number }>()
+const CACHE_DURATION = 60 * 1000 // 1 минута
 
-export async function getAllTopics(): Promise<Topic[]> {
-  // Если время сборки, возвращаем мок-данные
-  if (isBuildTime()) {
-    console.log('📦 Build time: using mock data')
-    const allTopics: Topic[] = []
-    Object.values(mockTopicsBySection).forEach(topics => {
-      allTopics.push(...topics)
-    })
-    return allTopics
+// Улучшенная функция fetch с кэшированием
+async function cachedFetch(url: string, options: RequestInit = {}) {
+  const cacheKey = `${url}-${JSON.stringify(options)}`
+  const now = Date.now()
+  
+  // Проверяем кэш
+  const cached = cache.get(cacheKey)
+  if (cached && now - cached.timestamp < CACHE_DURATION) {
+    console.log(`📦 Cache hit: ${url}`)
+    return cached.data
   }
   
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-    const sections = ['fires', 'emergency', 'education', 'protection']
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), config.timeout)
     
-    const allTopics: Topic[] = []
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
     
-    for (const section of sections) {
-      try {
-        // Используем абсолютный URL для продакшена
-        const apiUrl = `${baseUrl}/api/github/topics?section=${section}`
-        const response = await fetch(apiUrl, {
-          next: { revalidate: 60 }
-        })
-        
-        if (response.ok) {
-          const topics = await response.json()
-          allTopics.push(...topics)
-        } else {
-          console.warn(`Не удалось загрузить темы для раздела ${section}:`, response.status)
-        }
-      } catch (error) {
-        console.error(`Error loading topics for ${section}:`, error)
-      }
+    clearTimeout(timeoutId)
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
     
+    const data = await response.json()
+    
+    // Сохраняем в кэш
+    cache.set(cacheKey, { data, timestamp: now })
+    
+    return data
+  } catch (error) {
+    console.error(`❌ Fetch error for ${url}:`, error)
+    throw error
+  }
+}
+
+// Параллельная загрузка всех разделов
+export async function getAllTopics(): Promise<Topic[]> {
+  const sections = ['fires', 'emergency', 'education', 'protection']
+  
+  try {
+    // Создаем промисы для всех разделов
+    const promises = sections.map(async (section) => {
+      try {
+        const apiUrl = `${config.baseUrl}/api/github/topics?section=${section}`
+        const topics = await cachedFetch(apiUrl, {
+          // ВАЖНО: используем force-cache в production для скорости
+          cache: config.isDevelopment ? 'no-store' : 'force-cache',
+          next: { revalidate: 3600 } // 1 час для production
+        })
+        
+        return topics.map((topic: any) => ({
+          ...topic,
+          content: topic.content || topic.body || '',
+          body: topic.body || topic.content || '',
+          section: topic.section || section
+        }))
+      } catch (error) {
+        console.warn(`⚠️ Failed to load section ${section}:`, error)
+        return [] // Возвращаем пустой массив при ошибке
+      }
+    })
+    
+    // Запускаем все запросы параллельно
+    const results = await Promise.allSettled(promises)
+    
+    // Объединяем все темы
+    const allTopics: Topic[] = results.flatMap(result => 
+      result.status === 'fulfilled' ? result.value : []
+    )
+    
+    // Сортируем темы
     return allTopics.sort((a, b) => {
       const sectionOrder = ['fires', 'emergency', 'education', 'protection']
       const sectionCompare = sectionOrder.indexOf(a.section) - sectionOrder.indexOf(b.section)
@@ -112,19 +112,14 @@ export async function getAllTopics(): Promise<Topic[]> {
     })
     
   } catch (error) {
-    console.error('Error reading all topics:', error)
+    console.error('❌ Error in getAllTopics:', error)
     return []
   }
 }
 
-export async function getTopicByNumber(number: number, section?: string): Promise<Topic | null> {
+export async function getTopicByNumber(number: number): Promise<Topic | null> {
   try {
     const topics = await getAllTopics()
-    
-    if (section) {
-      return topics.find(topic => topic.topic_number === number && topic.section === section) || null
-    }
-    
     return topics.find(topic => topic.topic_number === number) || null
   } catch (error) {
     console.error('Error getting topic by number:', error)
@@ -133,23 +128,19 @@ export async function getTopicByNumber(number: number, section?: string): Promis
 }
 
 export async function getTopicsBySection(section: string): Promise<Topic[]> {
-  // Если время сборки, возвращаем мок-данные
-  if (isBuildTime()) {
-    return mockTopicsBySection[section] || []
-  }
-  
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-    const apiUrl = `${baseUrl}/api/github/topics?section=${section}`
-    const response = await fetch(apiUrl, {
-      next: { revalidate: 60 }
+    const apiUrl = `${config.baseUrl}/api/github/topics?section=${section}`
+    const topics = await cachedFetch(apiUrl, {
+      cache: config.isDevelopment ? 'no-store' : 'force-cache',
+      next: { revalidate: 3600 } // 1 час для production
     })
     
-    if (response.ok) {
-      return await response.json()
-    }
-    console.warn(`Failed to load topics for section ${section}:`, response.status)
-    return []
+    return topics.map((topic: any) => ({
+      ...topic,
+      content: topic.content || topic.body || '',
+      body: topic.body || topic.content || '',
+      section: topic.section || section
+    }))
   } catch (error) {
     console.error(`Error loading topics for section ${section}:`, error)
     return []
