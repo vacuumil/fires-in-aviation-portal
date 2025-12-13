@@ -1,12 +1,11 @@
-// app/(main)/topics/[slug]/page.tsx - ОПТИМИЗИРОВАННАЯ ВЕРСИЯ С КЭШИРОВАНИЕМ
+// app/(main)/topics/[slug]/page.tsx - ОПТИМИЗИРОВАННАЯ ВЕРСИЯ
 import { getTopicByNumber, getTopicsBySection } from '@/app/lib/cms/server'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Home, BookOpen, Calendar, User, Flame, AlertTriangle, GraduationCap, Shield } from 'lucide-react'
 import MarkdownRenderer from '@/app/components/ui/MarkdownRenderer'
 
 // Настройки кэширования
-export const revalidate = 60 // Ревалидация каждые 60 секунд
-export const dynamic = 'force-static' // Статическая генерация
+export const revalidate = 3600 // 1 час кэширования
 
 const sectionConfig = {
   fires: {
@@ -37,28 +36,19 @@ const sectionConfig = {
 
 // Генерируем статические пути для тем
 export async function generateStaticParams() {
-  // Получаем все темы для генерации статических путей
+  // Для генерации статических путей загружаем только ID тем
   try {
     const sections = ['fires', 'emergency', 'education', 'protection']
     const allTopics: { slug: string }[] = []
     
     for (const section of sections) {
-      // Используем прямой fetch без кэширования для build
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/github/topics?section=${section}`,
-        { next: { revalidate: 3600 } } // Кэшируем на 1 час для build
-      )
-      
-      if (response.ok) {
-        const topics = await response.json()
-        topics.forEach((topic: any) => {
-          allTopics.push({ slug: topic.topic_number.toString() })
-        })
-      }
+      const topics = await getTopicsBySection(section)
+      topics.forEach((topic: any) => {
+        allTopics.push({ slug: topic.topic_number.toString() })
+      })
     }
     
-    // Ограничиваем количество для build (первые 50 тем)
-    return allTopics.slice(0, 50)
+    return allTopics
   } catch (error) {
     console.error('Error generating static params:', error)
     return []
@@ -116,11 +106,12 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
 
   // Получаем темы только этого раздела (с кэшированием)
   const sectionTopics = await getTopicsBySection(section)
+  const sortedTopics = [...sectionTopics].sort((a, b) => (a.order || a.topic_number) - (b.order || b.topic_number))
   
   // Находим текущий индекс и соседние темы
-  const currentIndex = sectionTopics.findIndex(t => t.topic_number === topicNumber)
-  const prevTopic = currentIndex > 0 ? sectionTopics[currentIndex - 1] : null
-  const nextTopic = currentIndex < sectionTopics.length - 1 ? sectionTopics[currentIndex + 1] : null
+  const currentIndex = sortedTopics.findIndex(t => t.topic_number === topicNumber)
+  const prevTopic = currentIndex > 0 ? sortedTopics[currentIndex - 1] : null
+  const nextTopic = currentIndex < sortedTopics.length - 1 ? sortedTopics[currentIndex + 1] : null
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -139,14 +130,14 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
             </Link>
             
             <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
-              Тема {topic.topic_number} из {sectionTopics.length} в разделе
+              Тема {topic.topic_number} из {sortedTopics.length} в разделе
             </div>
           </div>
 
           {/* Навигация по темам в разделе */}
           {(prevTopic || nextTopic) && (
             <div className="flex justify-between mb-6">
-              {prevTopic ? (
+              {prevTopic && (
                 <Link
                   href={`/topics/${prevTopic.topic_number}`}
                   className="inline-flex items-center px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-all duration-200 group border border-gray-200 hover:border-gray-300"
@@ -159,11 +150,9 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
                     </div>
                   </div>
                 </Link>
-              ) : (
-                <div></div>
               )}
 
-              {nextTopic ? (
+              {nextTopic && (
                 <Link
                   href={`/topics/${nextTopic.topic_number}`}
                   className="inline-flex items-center px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-all duration-200 group border border-gray-200 hover:border-gray-300"
@@ -176,8 +165,6 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-red-600 transition-colors" />
                 </Link>
-              ) : (
-                <div></div>
               )}
             </div>
           )}
@@ -247,7 +234,7 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
         <div className="border-t border-gray-200 pt-8 mt-8">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="text-sm text-gray-600">
-              Изучите все {sectionTopics.length} тем в разделе "{sectionInfo.title}"
+              Изучите все {sortedTopics.length} тем в разделе "{sectionInfo.title}"
             </div>
             
             <div className="flex flex-wrap gap-2">
@@ -279,24 +266,6 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
                 </Link>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Быстрая навигация по разделам */}
-        <div className="mt-8 pt-8 border-t border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Другие разделы</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {Object.entries(sectionConfig).map(([key, config]) => (
-              key !== section && (
-                <Link
-                  key={key}
-                  href={`/${key}`}
-                  className={`inline-flex items-center justify-center px-4 py-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-all hover:shadow-sm ${config.color} bg-white`}
-                >
-                  <span className="font-medium">{config.title}</span>
-                </Link>
-              )
-            ))}
           </div>
         </div>
       </div>

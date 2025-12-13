@@ -1,4 +1,4 @@
-// app/(main)/[section]/page.tsx - ТОЛЬКО СЕРВЕРНЫЙ КОМПОНЕНТ БЕЗ БЛОКА ОБНОВЛЕНИЯ
+// app/(main)/[section]/page.tsx - УНИВЕРСАЛЬНАЯ СТРАНИЦА ДЛЯ ВСЕХ РАЗДЕЛОВ
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Flame, AlertTriangle, BookOpen, Shield } from 'lucide-react'
@@ -11,7 +11,7 @@ const sectionConfig = {
     description: 'Темы по пожарной безопасности',
     icon: <Flame className="w-8 h-8" />,
     linear: 'from-red-500 to-orange-500',
-    color: 'from-red-500 to-orange-500',
+    color: 'text-red-600',
     prefix: 1
   },
   emergency: {
@@ -19,7 +19,7 @@ const sectionConfig = {
     description: 'Темы по действиям при ЧС в авиации',
     icon: <AlertTriangle className="w-8 h-8" />,
     linear: 'from-orange-500 to-amber-500',
-    color: 'from-orange-500 to-amber-500',
+    color: 'text-orange-600',
     prefix: 101
   },
   education: {
@@ -27,7 +27,7 @@ const sectionConfig = {
     description: 'Учебные материалы и методики обучения',
     icon: <BookOpen className="w-8 h-8" />,
     linear: 'from-blue-500 to-cyan-500',
-    color: 'from-blue-500 to-cyan-500',
+    color: 'text-blue-600',
     prefix: 201
   },
   protection: {
@@ -35,13 +35,13 @@ const sectionConfig = {
     description: 'Средства и методы защиты в авиации',
     icon: <Shield className="w-8 h-8" />,
     linear: 'from-green-500 to-emerald-500',
-    color: 'from-green-500 to-emerald-500',
+    color: 'text-green-600',
     prefix: 301
   }
 }
 
 // Настройки ревалидации
-export const revalidate = 60
+export const revalidate = 3600 // 1 час кэширования
 
 // Генерация метаданных
 export async function generateMetadata({ params }: { params: Promise<{ section: string }> }) {
@@ -66,6 +66,16 @@ export async function generateMetadata({ params }: { params: Promise<{ section: 
   }
 }
 
+// Генерация статических параметров
+export async function generateStaticParams() {
+  return [
+    { section: 'fires' },
+    { section: 'emergency' },
+    { section: 'education' },
+    { section: 'protection' }
+  ]
+}
+
 export default async function SectionPage({ 
   params 
 }: { 
@@ -79,10 +89,11 @@ export default async function SectionPage({
     notFound()
   }
   
-  // Загружаем темы раздела
+  // Загружаем темы раздела с кэшированием
   const topics = await getTopicsBySection(currentSection)
   
-  console.log(`📊 Section ${currentSection} loaded ${topics.length} topics`)
+  // Сортируем темы по order или номеру
+  const sortedTopics = [...topics].sort((a, b) => (a.order || a.topic_number) - (b.order || b.topic_number))
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -103,7 +114,7 @@ export default async function SectionPage({
               <div className="bg-linear-to-r from-gray-50 to-white px-4 py-2.5 rounded-xl border border-gray-200 shadow-sm">
                 <p className="text-sm text-gray-500 mb-1">Всего тем в разделе</p>
                 <p className="text-2xl md:text-3xl font-bold bg-linear-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                  {topics.length}
+                  {sortedTopics.length}
                 </p>
               </div>
             </div>
@@ -111,9 +122,9 @@ export default async function SectionPage({
         </div>
 
         {/* Список тем */}
-        {topics.length > 0 ? (
+        {sortedTopics.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {topics.map((topic: any) => (
+            {sortedTopics.map((topic) => (
               <Link
                 key={topic.topic_number}
                 href={`/topics/${topic.topic_number}`}
@@ -186,28 +197,6 @@ export default async function SectionPage({
                 <span>Перейти в админ-панель</span>
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
-            </div>
-          </div>
-        )}
-        
-        {/* Блок с информацией - БЕЗ КНОПКИ ОБНОВЛЕНИЯ */}
-        {topics.length > 0 && (
-          <div className="mt-8 pt-8 border-t border-gray-200">
-            <div className="bg-linear-to-r from-gray-50 to-white rounded-xl p-6 border border-gray-200">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">Контент обновляется автоматически</h3>
-                  <p className="text-gray-600 text-sm">
-                    Новые темы появятся на этой странице в течение нескольких минут после их создания.
-                  </p>
-                </div>
-                <Link
-                  href="/"
-                  className="inline-flex items-center px-4 py-2.5 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors border border-gray-300 text-sm whitespace-nowrap"
-                >
-                  ← На главную страницу
-                </Link>
-              </div>
             </div>
           </div>
         )}
